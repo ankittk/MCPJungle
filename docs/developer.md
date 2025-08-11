@@ -26,6 +26,12 @@ goreleaser release --clean --snapshot --skip publish
 $ goreleaser release --snapshot --clean
 ```
 
+### Dependency management policy
+- We rely on `go.mod` + `go.sum` as the single source of truth for dependencies.
+- The `vendor/` directory is not committed to the repository to reduce repo size and PR noise.
+- For fully offline or air-gapped builds, regenerate vendors locally with `go mod vendor` if needed, but do not commit the changes.
+- CI/Docker builds must use module-aware mode and fetch dependencies via the Go proxy. If necessary, set `GOPROXY="https://proxy.golang.org,direct"`.
+
 ### Create a new release
 1. Create a Git Tag with the new version
 
