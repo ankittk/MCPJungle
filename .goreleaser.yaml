@@ -10,8 +10,6 @@ before:
 
 builds:
   - id: mcpjungle
-    env:
-      - CGO_ENABLED=0 # to ensure fully static builds and keep distroless image size down
     main: ./main.go
     binary: mcpjungle
     goos:
