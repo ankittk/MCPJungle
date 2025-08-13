@@ -3,6 +3,9 @@
 
 version: 2
 
+# Basename for the build artifacts, used in the archive names and Docker images.
+project_name: mcpjungle
+
 before:
   hooks:
     - go test -v ./...
@@ -21,6 +24,22 @@ builds:
       - arm64
     ldflags:
       - -s -w -X github.com/mcpjungle/mcpjungle/cmd.Version={{.Version}}
+    env:
+      - CGO_ENABLED=0
+      - GOWORK=off
+    overrides:
+      # macOS builds - use CGO for better compatibility
+      # overrides for darwin builds to enable CGO
+      - goos: darwin
+        goarch: amd64
+        env:
+          - CGO_ENABLED=1
+          - GOWORK=off
+      - goos: darwin
+        goarch: arm64
+        env:
+          - CGO_ENABLED=1
+          - GOWORK=off
 
 archives:
   - formats: [tar.gz]
