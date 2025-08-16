@@ -506,4 +506,9 @@ We're collecting more feedback on how people use OAuth with MCP servers, so feel
 
 # Contributing 💻
 
-If you're interested in contributing to MCPJungle, see [Developer Docs](./docs/developer.md).
+We welcome contributions from the community! 
+
+- **For contribution guidelines and standards**, see [CONTRIBUTION.md](./CONTRIBUTION.md)
+- **For development setup and technical details**, see [DEVELOPMENT.md](./DEVELOPMENT.md)
+
+Join our [Discord community](https://discord.gg/CapV4Z3krk) to connect with other contributors and maintainers.
