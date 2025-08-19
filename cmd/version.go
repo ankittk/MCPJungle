@@ -14,11 +14,6 @@ var (
 )
 
 // GetVersion returns the CLI version string.
-//
-// Priority order:
-// 1. Build-time injected `Version` (via ldflags)
-// 2. Go module build info (when installed with `go install module@version`)
-// 3. Default: "dev" (local build)
 func GetVersion() string {
 	if Version != "" && Version != "dev" {
 		return normalizeVersion(Version)
@@ -48,6 +43,8 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
+		// We want the extra newline for proper formatting
+		fmt.Print(asciiArt) //nolint:staticcheck
 		fmt.Printf("MCPJungle %s\n", GetVersion())
 	},
 	Annotations: map[string]string{
@@ -58,4 +55,5 @@ var versionCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.Flags().BoolP("version", "v", false, "Display version information")
 }

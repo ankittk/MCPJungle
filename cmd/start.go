@@ -2,8 +2,13 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/joho/godotenv"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/spf13/cobra"
+
 	"github.com/mcpjungle/mcpjungle/internal/api"
 	"github.com/mcpjungle/mcpjungle/internal/db"
 	"github.com/mcpjungle/mcpjungle/internal/migrations"
@@ -12,9 +17,6 @@ import (
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp_client"
 	"github.com/mcpjungle/mcpjungle/internal/service/user"
-	"github.com/spf13/cobra"
-	"os"
-	"strings"
 )
 
 const (
@@ -176,6 +178,8 @@ func runStartServer(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Display startup banner when the server is started
+	fmt.Print(asciiArt)
 	fmt.Printf("MCPJungle HTTP server listening on :%s\n\n", port)
 	if err := s.Start(); err != nil {
 		return fmt.Errorf("failed to run the server: %v\n", err)
