@@ -59,10 +59,17 @@ docker-compose up -d
 ```
 
 ## Register MCP servers
-Download the client binary either using brew or from the [Releases](https://github.com/mcpjungle/MCPJungle/releases).
+Download the client binary using one of the following methods:
+
 ```bash
+# Homebrew
 brew install mcpjungle/mcpjungle/mcpjungle
+
+# Go (adds the binary to $GOBIN or $GOPATH/bin)
+go install github.com/mcpjungle/mcpjungle@latest
 ```
+
+Or download from the [Releases](https://github.com/mcpjungle/MCPJungle/releases) page.
 
 Add the [context7](https://context7.com/) remote MCP server to mcpjungle
 ```bash
@@ -115,6 +122,14 @@ You can either download it from the [Releases](https://github.com/mcpjungle/MCPJ
 ```bash
 brew install mcpjungle/mcpjungle/mcpjungle
 ```
+
+Or install directly with Go:
+
+```bash
+go install github.com/mcpjungle/mcpjungle@latest
+```
+
+Ensure `$GOBIN` (or `$GOPATH/bin`) is in your `PATH` so the `mcpjungle` command is available.
 
 Verify your installation by running
 

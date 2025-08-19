@@ -20,12 +20,14 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"github.com/mcpjungle/mcpjungle/client"
-	"github.com/mcpjungle/mcpjungle/cmd/config"
-	"github.com/spf13/cobra"
 	"net/http"
 	"sort"
 	"strconv"
+
+	"github.com/spf13/cobra"
+
+	"github.com/mcpjungle/mcpjungle/client"
+	"github.com/mcpjungle/mcpjungle/cmd/config"
 )
 
 // subCommandGroup defines a type for categorizing subcommands into groups
@@ -78,6 +80,10 @@ func Execute() error {
 
 	// Set custom help function that handles both root and subcommands
 	rootCmd.SetHelpFunc(customHelpFunc(defaultHelpFunc))
+
+	// Enable built-in --version behavior
+	rootCmd.Version = GetVersion()
+	rootCmd.SetVersionTemplate("MCPJungle Version {{.Version}}\n")
 
 	// only print usage and error messages if the command usage is incorrect
 	rootCmd.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
