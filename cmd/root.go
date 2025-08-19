@@ -20,12 +20,14 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"github.com/mcpjungle/mcpjungle/client"
-	"github.com/mcpjungle/mcpjungle/cmd/config"
-	"github.com/spf13/cobra"
 	"net/http"
 	"sort"
 	"strconv"
+
+	"github.com/spf13/cobra"
+
+	"github.com/mcpjungle/mcpjungle/client"
+	"github.com/mcpjungle/mcpjungle/cmd/config"
 )
 
 // subCommandGroup defines a type for categorizing subcommands into groups
@@ -49,6 +51,8 @@ const unorderedCommand = -1
 var SilentErr = errors.New("SilentErr")
 
 var registryServerURL string
+
+var showVersionFlag bool
 
 // apiClient is the global API client used by command handlers to interact with the MCPJungle registry server.
 // It is not the best choice to rely on a global variable, but cobra doesn't seem to provide any neat way to
@@ -93,10 +97,23 @@ func Execute() error {
 		"Base URL of the MCPJungle registry server",
 	)
 
+	// Global --version flag
+	rootCmd.PersistentFlags().BoolVar(
+		&showVersionFlag,
+		"version",
+		false,
+		"Show version and exit",
+	)
+
 	// Initialize the API client with the registry server URL & client configuration (if any)
-	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if showVersionFlag {
+			fmt.Printf("MCPJungle Version %s\n", GetVersion())
+			return SilentErr
+		}
 		cfg := config.Load()
 		apiClient = client.NewClient(registryServerURL, cfg.AccessToken, http.DefaultClient)
+		return nil
 	}
 
 	return rootCmd.Execute()
