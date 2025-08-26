@@ -2,8 +2,11 @@ package api
 
 import (
 	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mark3labs/mcp-go/server"
+
+	"github.com/mcpjungle/mcpjungle/internal/metrics"
 	"github.com/mcpjungle/mcpjungle/internal/model"
 	"github.com/mcpjungle/mcpjungle/internal/service/config"
 	"github.com/mcpjungle/mcpjungle/internal/service/mcp"
@@ -22,6 +25,7 @@ type ServerOptions struct {
 	MCPClientService *mcp_client.McpClientService
 	ConfigService    *config.ServerConfigService
 	UserService      *user.UserService
+	OtelProviders    *metrics.Providers
 }
 
 // Server represents the MCPJungle registry server that handles MCP proxy and API requests
@@ -35,23 +39,39 @@ type Server struct {
 
 	configService *config.ServerConfigService
 	userService   *user.UserService
+
+	otelProviders *metrics.Providers
+	metrics       *metrics.MCPMetrics
 }
 
 // NewServer initializes a new Gin server for MCPJungle registry and MCP proxy
 func NewServer(opts *ServerOptions) (*Server, error) {
-	r, err := newRouter(opts)
-	if err != nil {
-		return nil, err
-	}
 	s := &Server{
 		port:             opts.Port,
-		router:           r,
 		mcpProxyServer:   opts.MCPProxyServer,
 		mcpService:       opts.MCPService,
 		mcpClientService: opts.MCPClientService,
 		configService:    opts.ConfigService,
 		userService:      opts.UserService,
+		otelProviders:    opts.OtelProviders,
 	}
+
+	// Initialize metrics if OTel providers are available
+	if opts.OtelProviders != nil && opts.OtelProviders.Meter != nil {
+		mcpMetrics, err := metrics.NewMCPMetrics(opts.OtelProviders.Meter)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create MCP metrics: %w", err)
+		}
+		s.metrics = mcpMetrics
+	}
+
+	// Set up the router after the server is fully initialized
+	r, err := s.setupRouter()
+	if err != nil {
+		return nil, err
+	}
+	s.router = r
+
 	return s, nil
 }
 
@@ -98,8 +118,8 @@ func (s *Server) Start() error {
 	return nil
 }
 
-// newRouter sets up the Gin router with the MCP proxy server and API endpoints.
-func newRouter(opts *ServerOptions) (*gin.Engine, error) {
+// setupRouter sets up the Gin router with the MCP proxy server and API endpoints.
+func (s *Server) setupRouter() (*gin.Engine, error) {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
@@ -110,76 +130,81 @@ func newRouter(opts *ServerOptions) (*gin.Engine, error) {
 		},
 	)
 
-	r.POST("/init", registerInitServerHandler(opts.ConfigService, opts.UserService))
+	// Add metrics endpoint if otel is enabled
+	if s.otelProviders != nil && s.otelProviders.IsEnabled() {
+		r.GET("/metrics", gin.WrapH(s.otelProviders.Handler))
+	}
 
-	requireProdMode := requireServerMode(model.ModeProd)
+	r.POST("/init", s.registerInitServerHandler())
+
+	requireProdMode := s.requireServerMode(model.ModeProd)
 
 	// Set up the MCP proxy server on /mcp
-	streamableHttpServer := server.NewStreamableHTTPServer(opts.MCPProxyServer)
+	streamableHttpServer := server.NewStreamableHTTPServer(s.mcpProxyServer)
 	r.Any(
 		"/mcp",
-		requireInitialized(opts.ConfigService),
-		checkAuthForMcpProxyAccess(opts.MCPClientService),
+		s.requireInitialized(),
+		s.checkAuthForMcpProxyAccess(),
 		gin.WrapH(streamableHttpServer),
 	)
 
 	// Setup /v0 API endpoints
 	apiV0 := r.Group(
 		V0PathPrefix,
-		requireInitialized(opts.ConfigService),
-		verifyUserAuthForAPIAccess(opts.UserService),
+		s.requireInitialized(),
+		s.verifyUserAuthForAPIAccess(),
 	)
 
 	// endpoints accessible by a standard user in production mode or anyone in development mode
 	userAPI := apiV0.Group("/")
 	{
-		userAPI.GET("/servers", listServersHandler(opts.MCPService))
+		userAPI.GET("/servers", s.listServersHandler())
 
-		userAPI.GET("/tools", listToolsHandler(opts.MCPService))
-		userAPI.POST("/tools/invoke", invokeToolHandler(opts.MCPService))
-		userAPI.GET("/tool", getToolHandler(opts.MCPService))
+		userAPI.GET("/tools", s.listToolsHandler())
+		userAPI.POST("/tools/invoke", s.invokeToolHandler())
+		userAPI.GET("/tool", s.getToolHandler())
 
 		userAPI.GET("/users/whoami", requireProdMode, whoAmIHandler())
 	}
 
 	// endpoints only accessible by an admin user in production mode or anyone in development mode
-	adminAPI := apiV0.Group("/", requireAdminUser())
+	adminAPI := apiV0.Group("/", s.requireAdminUser())
 	{
-		adminAPI.POST("/servers", registerServerHandler(opts.MCPService))
-		adminAPI.DELETE("/servers/:name", deregisterServerHandler(opts.MCPService))
+		adminAPI.POST("/servers", s.registerServerHandler())
+		adminAPI.DELETE("/servers/:name", s.deregisterServerHandler())
 
-		adminAPI.POST("/tools/enable", enableToolsHandler(opts.MCPService))
-		adminAPI.POST("/tools/disable", disableToolsHandler(opts.MCPService))
+		adminAPI.POST("/tools/enable", s.enableToolsHandler())
+		adminAPI.POST("/tools/disable", s.disableToolsHandler())
 
 		// endpoints for managing MCP clients (production mode only)
 		adminAPI.GET(
 			"/clients",
 			requireProdMode,
-			listMcpClientsHandler(opts.MCPClientService),
+			s.listMcpClientsHandler(),
 		)
 		adminAPI.POST(
 			"/clients",
 			requireProdMode,
-			createMcpClientHandler(opts.MCPClientService),
+			s.createMcpClientHandler(),
 		)
 		adminAPI.DELETE(
 			"/clients/:name",
 			requireProdMode,
-			deleteMcpClientHandler(opts.MCPClientService),
+			s.deleteMcpClientHandler(),
 		)
 
 		// endpoints for managing human users (production mode only)
 		adminAPI.POST("/users",
 			requireProdMode,
-			createUserHandler(opts.UserService),
+			createUserHandler(s.userService),
 		)
 		adminAPI.GET("/users",
 			requireProdMode,
-			listUsersHandler(opts.UserService),
+			listUsersHandler(s.userService),
 		)
 		adminAPI.DELETE("/users/:username",
 			requireProdMode,
-			deleteUserHandler(opts.UserService),
+			deleteUserHandler(s.userService),
 		)
 	}
 
